@@ -1,0 +1,33 @@
+{
+  "name": "codex-hud",
+  "version": "0.1.0",
+  "description": "Claude-HUD-style native Codex CLI footer preset",
+  "author": {
+    "name": "Ian Roybal"
+  },
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "hud",
+    "statusline",
+    "cli",
+    "productivity"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex HUD",
+    "shortDescription": "Clean context, usage, mode, git, and model footer for Codex.",
+    "longDescription": "Codex HUD configures Codex's native TUI status line and terminal title to show a Claude-HUD-style at-a-glance view: model, context, usage limits, permission mode, approval mode, git branch/change state, current worktree, tokens, and task progress.",
+    "developerName": "Ian Roybal",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "Apply the Codex HUD footer.",
+      "Check my Codex HUD setup.",
+      "Tune my Codex status line."
+    ],
+    "brandColor": "#10A37F"
+  }
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: Codex HUD
+  short_description: Configure a clean Claude-HUD-style Codex CLI footer.
+  default_prompt: Apply the Codex HUD footer to this machine.
+policy:
+  allow_implicit_invocation: true
