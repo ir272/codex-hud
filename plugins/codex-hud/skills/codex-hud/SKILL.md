@@ -5,11 +5,11 @@ description: Configure, repair, or tune Ian's Codex HUD plugin and Claude-HUD-st
 
 # Codex HUD
 
-Use Codex's native TUI footer before building any custom renderer. The preset mirrors Claude-HUD's clean at-a-glance shape with native Codex items: model, context, usage limits, permission/approval mode, git branch/change state, current worktree, session tokens, and task progress.
+Use Codex's native TUI footer before building any custom renderer. The preset mirrors Claude-HUD's clean at-a-glance shape with native Codex items: model, context, usage limits, permission/approval mode, git branch/change state, current worktree, and task progress.
 
 ## Setup
 
-Resolve the plugin root as two directories above this `SKILL.md`, then run:
+Resolve the plugin root as the parent of the `skills/` directory containing this `SKILL.md`, then run:
 
 ```bash
 python3 <plugin-root>/scripts/setup_codex_hud.py
@@ -26,7 +26,7 @@ codex debug prompt-input >/tmp/codex-hud-prompt-check.json
 
 ## Preset
 
-- `tui.status_line`: `model-with-reasoning`, `context-remaining`, `five-hour-limit`, `weekly-limit`, `permissions`, `approval-mode`, `git-branch`, `branch-changes`, `current-dir`, `used-tokens`, `task-progress`
+- `tui.status_line`: `model-with-reasoning`, `context-remaining`, `five-hour-limit`, `weekly-limit`, `permissions`, `approval-mode`, `git-branch`, `branch-changes`, `current-dir`, `task-progress`
 - `tui.terminal_title`: `spinner`, `project`, `git-branch`, `model`, `task-progress`
 - `tui.status_line_use_colors = true`
 

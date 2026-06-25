@@ -23,7 +23,6 @@ STATUS_LINE = [
     "git-branch",
     "branch-changes",
     "current-dir",
-    "used-tokens",
     "task-progress",
 ]
 
@@ -36,9 +35,9 @@ TUI_VALUES: dict[str, Any] = {
 }
 
 KEYS = set(TUI_VALUES)
-TABLE_RE = re.compile(r"^\s*\[[^\]]+\]\s*(?:#.*)?$")
+TABLE_RE = re.compile(r"^\s*\[\[?[^\]]+\]\]?\s*(?:#.*)?$")
 TUI_RE = re.compile(r"^\s*\[tui\]\s*(?:#.*)?$")
-TUI_CHILD_RE = re.compile(r"^\s*\[tui\." )
+TUI_CHILD_RE = re.compile(r"^\s*\[\[?tui\." )
 
 
 def config_path(raw: str | None) -> Path:
@@ -66,6 +65,25 @@ def line_sets_key(line: str) -> bool:
     return any(re.match(rf"{re.escape(key)}\s*=", stripped) for key in KEYS)
 
 
+def filter_tui_lines(lines: list[str]) -> list[str]:
+    kept: list[str] = []
+    skip_depth = 0
+    for line in lines:
+        if skip_depth:
+            skip_depth += line.count("[") - line.count("]")
+            if skip_depth <= 0:
+                skip_depth = 0
+            continue
+        if line_sets_key(line):
+            _, raw = line.split("=", 1)
+            skip_depth = raw.count("[") - raw.count("]")
+            if skip_depth < 0:
+                skip_depth = 0
+            continue
+        kept.append(line)
+    return kept
+
+
 def patch_tui_table(text: str) -> str:
     lines = text.splitlines()
     block = hud_lines()
@@ -75,7 +93,7 @@ def patch_tui_table(text: str) -> str:
             end = idx + 1
             while end < len(lines) and not TABLE_RE.match(lines[end]):
                 end += 1
-            kept = [ln for ln in lines[idx + 1 : end] if not line_sets_key(ln)]
+            kept = filter_tui_lines(lines[idx + 1 : end])
             while kept and not kept[0].strip():
                 kept.pop(0)
             new_section = [lines[idx], *block]
@@ -127,13 +145,14 @@ def parse_tui_values(text: str) -> dict[str, Any]:
 
 
 def matches(path: Path) -> bool:
+    if not path.exists():
+        return False
     return all(parse_tui_values(path.read_text(encoding="utf-8")).get(k) == v for k, v in TUI_VALUES.items())
 
 
 def apply(path: Path, *, dry_run: bool) -> int:
-    if not path.exists():
-        raise SystemExit(f"Missing Codex config: {path}")
-    original = path.read_text(encoding="utf-8")
+    existed = path.exists()
+    original = path.read_text(encoding="utf-8") if existed else ""
     updated = patch_tui_table(original)
     if not all(parse_tui_values(updated).get(k) == v for k, v in TUI_VALUES.items()):
         raise SystemExit("Internal error: patched TOML does not contain HUD values.")
@@ -143,14 +162,18 @@ def apply(path: Path, *, dry_run: bool) -> int:
     if dry_run:
         print(updated)
         return 0
-    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d%H%M%S")
-    backup = path.with_name(f"{path.name}.bak-codex-hud-{stamp}")
-    shutil.copy2(path, backup)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    backup = None
+    if existed:
+        stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d%H%M%S")
+        backup = path.with_name(f"{path.name}.bak-codex-hud-{stamp}")
+        shutil.copy2(path, backup)
     path.write_text(updated, encoding="utf-8")
     if not matches(path):
         raise SystemExit("Wrote config, but HUD values did not verify.")
     print(f"codex-hud configured: {path}")
-    print(f"backup: {backup}")
+    if backup is not None:
+        print(f"backup: {backup}")
     print("status_line: " + " | ".join(STATUS_LINE))
     print("terminal_title: " + " | ".join(TERMINAL_TITLE))
     return 0
@@ -166,7 +189,7 @@ def check(path: Path) -> int:
         print(f"codex-hud check passed: {path}")
         return 0
     print(f"codex-hud check failed: {path}")
-    print("Run: python3 scripts/setup_codex_hud.py")
+    print(f"Run: python3 {Path(__file__).resolve()}")
     return 1
 
 

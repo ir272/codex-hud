@@ -18,7 +18,7 @@ Use codex-hud to apply the footer.
 ## Pin a release
 
 ```bash
-codex plugin marketplace add ir272/codex-hud --ref v0.1.0
+codex plugin marketplace add ir272/codex-hud --ref v0.1.1
 codex plugin add codex-hud@codex-hud
 ```
 
