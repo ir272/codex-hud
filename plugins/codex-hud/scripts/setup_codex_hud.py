@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply Ian's Codex HUD footer/title preset."""
+"""Apply the Codex HUD footer/title preset."""
 
 from __future__ import annotations
 
@@ -13,28 +13,56 @@ import sys
 from pathlib import Path
 from typing import Any
 
-STATUS_LINE = [
-    "model-with-reasoning",
-    "context-remaining",
-    "five-hour-limit",
-    "weekly-limit",
-    "permissions",
-    "approval-mode",
-    "git-branch",
-    "branch-changes",
-    "current-dir",
-    "task-progress",
-]
-
-TERMINAL_TITLE = ["spinner", "project", "git-branch", "model", "task-progress"]
-
-TUI_VALUES: dict[str, Any] = {
-    "status_line": STATUS_LINE,
-    "status_line_use_colors": True,
-    "terminal_title": TERMINAL_TITLE,
+PRESETS: dict[str, dict[str, Any]] = {
+    "compact": {
+        "status_line": [
+            "model-with-reasoning",
+            "context-used",
+            "five-hour-limit",
+            "git-branch",
+            "branch-changes",
+        ],
+        "status_line_use_colors": True,
+        "terminal_title": ["spinner", "project", "git-branch"],
+    },
+    "balanced": {
+        "status_line": [
+            "model-with-reasoning",
+            "context-used",
+            "five-hour-limit",
+            "weekly-limit",
+            "permissions",
+            "approval-mode",
+            "git-branch",
+            "branch-changes",
+            "current-dir",
+            "task-progress",
+        ],
+        "status_line_use_colors": True,
+        "terminal_title": ["spinner", "project", "git-branch", "model", "task-progress"],
+    },
+    "full": {
+        "status_line": [
+            "model-with-reasoning",
+            "context-used",
+            "context-remaining",
+            "context-window-size",
+            "five-hour-limit",
+            "weekly-limit",
+            "permissions",
+            "approval-mode",
+            "git-branch",
+            "branch-changes",
+            "current-dir",
+            "task-progress",
+            "used-tokens",
+        ],
+        "status_line_use_colors": True,
+        "terminal_title": ["spinner", "project", "git-branch", "model", "task-progress"],
+    },
 }
 
-KEYS = set(TUI_VALUES)
+KEYS = {"status_line", "status_line_use_colors", "terminal_title"}
 TABLE_RE = re.compile(r"^\s*\[\[?[^\]]+\]\]?\s*(?:#.*)?$")
 TUI_RE = re.compile(r"^\s*\[tui\]\s*(?:#.*)?$")
 TUI_CHILD_RE = re.compile(r"^\s*\[\[?tui\." )
@@ -54,8 +82,8 @@ def toml_value(value: Any) -> str:
     return json.dumps(value)
 
 
-def hud_lines() -> list[str]:
-    return [f"{key} = {toml_value(value)}" for key, value in TUI_VALUES.items()]
+def hud_lines(values: dict[str, Any]) -> list[str]:
+    return [f"{key} = {toml_value(value)}" for key, value in values.items()]
 
 
 def line_sets_key(line: str) -> bool:
@@ -84,9 +112,9 @@ def filter_tui_lines(lines: list[str]) -> list[str]:
     return kept
 
 
-def patch_tui_table(text: str) -> str:
+def patch_tui_table(text: str, values: dict[str, Any]) -> str:
     lines = text.splitlines()
-    block = hud_lines()
+    block = hud_lines(values)
 
     for idx, line in enumerate(lines):
         if TUI_RE.match(line):
@@ -144,17 +172,41 @@ def parse_tui_values(text: str) -> dict[str, Any]:
     return values
 
 
-def matches(path: Path) -> bool:
+def matches(path: Path, values: dict[str, Any]) -> bool:
     if not path.exists():
         return False
-    return all(parse_tui_values(path.read_text(encoding="utf-8")).get(k) == v for k, v in TUI_VALUES.items())
+    return all(parse_tui_values(path.read_text(encoding="utf-8")).get(k) == v for k, v in values.items())
 
 
-def apply(path: Path, *, dry_run: bool) -> int:
+def backup_config(path: Path) -> Path:
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d%H%M%S%f")
+    backup = path.with_name(f"{path.name}.bak-codex-hud-{stamp}")
+    shutil.copy2(path, backup)
+    return backup
+
+
+def latest_backup(path: Path) -> Path | None:
+    backups = sorted(path.parent.glob(f"{path.name}.bak-codex-hud-*"))
+    return backups[-1] if backups else None
+
+
+def remove_tui_values(text: str) -> str:
+    lines = text.splitlines()
+    for idx, line in enumerate(lines):
+        if TUI_RE.match(line):
+            end = idx + 1
+            while end < len(lines) and not TABLE_RE.match(lines[end]):
+                end += 1
+            kept = filter_tui_lines(lines[idx + 1 : end])
+            return "\n".join(lines[: idx + 1] + kept + lines[end:]) + "\n"
+    return text
+
+
+def apply(path: Path, values: dict[str, Any], preset: str, *, dry_run: bool) -> int:
     existed = path.exists()
     original = path.read_text(encoding="utf-8") if existed else ""
-    updated = patch_tui_table(original)
-    if not all(parse_tui_values(updated).get(k) == v for k, v in TUI_VALUES.items()):
+    updated = patch_tui_table(original, values)
+    if not all(parse_tui_values(updated).get(k) == v for k, v in values.items()):
         raise SystemExit("Internal error: patched TOML does not contain HUD values.")
     if updated == original:
         print(f"codex-hud already configured: {path}")
@@ -165,42 +217,82 @@ def apply(path: Path, *, dry_run: bool) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     backup = None
     if existed:
-        stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d%H%M%S")
-        backup = path.with_name(f"{path.name}.bak-codex-hud-{stamp}")
-        shutil.copy2(path, backup)
+        backup = backup_config(path)
     path.write_text(updated, encoding="utf-8")
-    if not matches(path):
+    if not matches(path, values):
         raise SystemExit("Wrote config, but HUD values did not verify.")
-    print(f"codex-hud configured: {path}")
+    print(f"codex-hud configured ({preset}): {path}")
     if backup is not None:
         print(f"backup: {backup}")
-    print("status_line: " + " | ".join(STATUS_LINE))
-    print("terminal_title: " + " | ".join(TERMINAL_TITLE))
+    print("status_line: " + " | ".join(values["status_line"]))
+    print("terminal_title: " + " | ".join(values["terminal_title"]))
     return 0
 
 
-def check(path: Path) -> int:
+def remove(path: Path, *, dry_run: bool) -> int:
+    if not path.exists():
+        print(f"codex-hud not configured: {path}")
+        return 0
+    original = path.read_text(encoding="utf-8")
+    updated = remove_tui_values(original)
+    if updated == original:
+        print(f"codex-hud not configured: {path}")
+        return 0
+    if dry_run:
+        print(updated)
+        return 0
+    backup = backup_config(path)
+    path.write_text(updated, encoding="utf-8")
+    print(f"codex-hud removed: {path}")
+    print(f"backup: {backup}")
+    return 0
+
+
+def restore(path: Path) -> int:
+    backup = latest_backup(path)
+    if backup is None:
+        print(f"codex-hud restore failed: no backup found for {path}")
+        return 1
+    path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(backup, path)
+    print(f"codex-hud restored: {path}")
+    print(f"restored_from: {backup}")
+    return 0
+
+
+def check(path: Path, values: dict[str, Any], preset: str) -> int:
     try:
-        ok = matches(path)
+        ok = matches(path, values)
     except Exception as exc:  # noqa: BLE001 - print concise CLI diagnostics.
         print(f"codex-hud check failed: {exc}")
         return 2
     if ok:
-        print(f"codex-hud check passed: {path}")
+        print(f"codex-hud check passed ({preset}): {path}")
         return 0
     print(f"codex-hud check failed: {path}")
-    print(f"Run: python3 {Path(__file__).resolve()}")
+    print(f"Run: python3 {Path(__file__).resolve()} --preset {preset}")
     return 1
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Apply the Codex HUD TUI preset.")
     parser.add_argument("--config", help="Path to config.toml; defaults to $CODEX_HOME/config.toml or ~/.codex/config.toml")
-    parser.add_argument("--check", action="store_true", help="Verify the preset is already applied")
+    parser.add_argument("--preset", choices=PRESETS, default="balanced", help="HUD preset to apply or check")
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument("--check", action="store_true", help="Verify the preset is already applied")
+    action.add_argument("--remove", action="store_true", help="Remove codex-hud TUI keys from config.toml")
+    action.add_argument("--restore", action="store_true", help="Restore the most recent codex-hud backup")
     parser.add_argument("--dry-run", action="store_true", help="Print patched TOML instead of writing")
     args = parser.parse_args()
     path = config_path(args.config)
-    return check(path) if args.check else apply(path, dry_run=args.dry_run)
+    values = PRESETS[args.preset]
+    if args.check:
+        return check(path, values, args.preset)
+    if args.remove:
+        return remove(path, dry_run=args.dry_run)
+    if args.restore:
+        return restore(path)
+    return apply(path, values, args.preset, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
