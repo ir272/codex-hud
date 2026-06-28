@@ -4,6 +4,8 @@
 
 ![Codex HUD](assets/codex-hud.png)
 
+[3-second demo](assets/codex-hud-demo.mp4)
+
 Native Codex footer preset. See model, context, limits, permission mode, git, worktree, and progress without extra commands.
 
 ```mermaid
