@@ -1,6 +1,17 @@
 # Codex HUD
 
-Clean native Codex CLI footer for model, context usage, limits, permissions, git, worktree, and progress.
+**Version:** v0.2.0 · **Plugin:** `codex-hud` · **Default:** `balanced`
+
+![Codex HUD](assets/codex-hud.png)
+
+Native Codex footer preset. See model, context, limits, permission mode, git, worktree, and progress without extra commands.
+
+```mermaid
+flowchart LR
+  A[Install] --> B[Apply preset]
+  B --> C[Restart Codex]
+  C --> D[Clean footer]
+```
 
 ## Install
 
@@ -9,64 +20,30 @@ codex plugin marketplace add ir272/codex-hud
 codex plugin add codex-hud@codex-hud
 ```
 
-Restart Codex, then ask:
+Then ask Codex:
 
 ```text
 Use codex-hud to apply the footer.
 ```
 
-Default preset: `balanced`.
-
 ## Presets
 
-Ask Codex:
+- `compact`: small terminals
+- `balanced`: best default
+- `full`: maximum detail
 
-```text
-Use codex-hud to apply the compact preset.
-Use codex-hud to apply the balanced preset.
-Use codex-hud to apply the full preset.
-```
-
-Or run directly:
-
-```bash
-python3 plugins/codex-hud/scripts/setup_codex_hud.py --preset compact
-python3 plugins/codex-hud/scripts/setup_codex_hud.py --preset balanced
-python3 plugins/codex-hud/scripts/setup_codex_hud.py --preset full
-```
-
-## Pin a release
-
-```bash
-codex plugin marketplace add ir272/codex-hud --ref v0.2.0
-codex plugin add codex-hud@codex-hud
-```
-
-## Update
-
-```bash
-codex plugin marketplace upgrade codex-hud
-codex plugin add codex-hud@codex-hud
-```
-
-## Check
+## Useful commands
 
 ```text
 Use codex-hud to check my setup.
+Use codex-hud to apply the compact preset.
+Use codex-hud to apply the full preset.
 ```
 
-## Remove or restore
+Pin:
 
 ```bash
-python3 plugins/codex-hud/scripts/setup_codex_hud.py --remove
-python3 plugins/codex-hud/scripts/setup_codex_hud.py --restore
+codex plugin marketplace add ir272/codex-hud --ref v0.2.0
 ```
 
-Codex HUD uses Codex's built-in footer items. Custom progress bars are not part of Codex's native footer API yet.
-
-## Uninstall
-
-```bash
-codex plugin remove codex-hud@codex-hud
-codex plugin marketplace remove codex-hud
-```
+No custom bars yet; Codex must expose a native renderer first.
